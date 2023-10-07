@@ -1,0 +1,330 @@
+---
+title: "GLM_REPORT"
+author: "11812532 LuoYiling"
+date: "2021/2/8"
+output: pdf_document
+---
+
+#  Import package
+```{r setup, Included = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(car) 
+library(DT)
+library(flextable)
+library(tidyverse)
+library(dslabs)
+library(dplyr)
+library(caret)
+library(lubridate)
+library(tidytext)
+library("RColorBrewer")
+library(randomForest)
+library(tictoc)
+library(e1071)
+library(ggpubr)
+library("caret")
+library(ggplot2)
+library(ggcorrplot)
+library(dbplyr)
+library(dplyr)
+library(plyr)
+library(RColorBrewer)
+library(flextable)
+set_flextable_defaults(fonts_ignore=TRUE)
+```
+
+
+#  Import data
+```{r}
+data = read.csv("data_merged7.csv")
+data_pn= data[data$Lab.Status == "Positive ID" | data$Lab.Status == "Negative ID",
+              c("Lab.Status","suitability","time_normalization","Location")]
+data_n = data[data$Lab.Status == "Negative ID",
+              c("Lab.Status","suitability","time_normalization","Location")]
+data_p = data[data$Lab.Status == "Positive ID",
+              c("Lab.Status","suitability","time_normalization","Location")]
+```
+
+#  Variable description
+**Predictors:**
+
+suitability(what it is)(continuous)
+
+time_normalization(explanation)(continuous)
+
+location(explanation)(categorical)
+
+**Dependent variables:**
+
+Lab.Status(explanation)(categorical)
+
+(From my point of view...)
+
+as you write each variable explanation such as KNN and logistic growing model above, so one choice is in each end of the explanation, we add sth like(... and it's a categorical variable), and another choice is we add a form to describe these five variables individually.
+
+
+#  Descriptive Statistics
+
+
+##  Transformation
+```{r}
+data_pn <- data_pn %>% 
+  mutate(Lab.Status = if_else(Lab.Status == "Positive ID", 1, 0)) 
+```
+
+
+##  Summary of continuous factors
+```{r}
+summary(data_pn$suitability)
+summary(data$time_normalization)
+```
+*(may not need to put in report)*
+
+## data transformation
+```{r}
+data_pn= data[data$Lab.Status == "Positive ID" | data$Lab.Status == "Negative ID",
+              c("Lab.Status","suitability","time_normalization","Location")]
+data_pn <- data_pn %>% 
+  mutate(Location = as.factor(Location),
+         Lab.Status = as.factor(Lab.Status)
+         ) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  dplyr::select(Lab.Status,Location, everything())
+```
+
+
+## the number of the lab status
+```{r}
+ggplot(data, aes(x=Lab.Status, fill=Lab.Status)) + 
+  geom_bar() +
+  xlab("Lab Status") +
+  ylab("Count")
+```
+
+From this graph, we can see that the number of Negative ID and Positive ID are highly unbiased.
+
+
+##  Histgram of suitability
+```{r}
+ggplot(data, aes(x=suitability)) + 
+  geom_histogram() +
+  #scale_fill_manual(values = "red") +
+  scale_fill_brewer(palette = "Paired") +
+  xlab("Suitability") +
+  ylab("Count")
+```
+
+it don't have patterns but we include it into our model so don't put it in the report.
+
+*may not put in our report*
+
+##  Histgram of time
+```{r}
+ggplot(data, aes(x=time_normalization)) + 
+  #geom_histogram(fill = "red",color = "red") +
+  geom_histogram() +
+  stat_bin(bins = 10) +
+  xlab("Time") +
+  ylab("Count")
+```
+
+From the histgram shown above, we can see that with the number increasing (the number refer to the life story of ... how to say2333), the report that local people announced are growing.
+
+But it contradict to our model so...
+
+*may not put in our report*
+
+##  barchart of lab status with the percentage of location
+```{r}
+p0 <- ggplot(data_pn, aes(Lab.Status, fill = Location))+
+geom_bar(position = "fill")+ylab("Percentage")
+p0
+```
+
+From this barchart, we can see that the percentage of locations near 8 miles in Positive ID are much higher than that of Negative ID.
+
+(This graph also indicates the correlation of location and Lab Status)
+
+
+#  Data Processing
+
+##  set seed & form our data to do the model
+Our data is unbiased and it's unscientific to change the data's original distribution and status, so in order to solve this problem, we randomly pick 17 representative data from negative ID to form the biased condition.(or we randomly pick some data to reduce...euphemism? don't show them we just use small dataset)
+
+```{r}
+set.seed(399973)
+data_p$Lab.Status = 1
+m = sample(1:3237,17)
+data_n_sample = data.frame()
+for (i in (0:17)){data_n_sample = rbind(data_n_sample,data_n[m[i],])}
+data_n_sample$Lab.Status = 0
+ourdata = rbind(data_n_sample,data_p)
+```
+
+
+## HUBIANLUANZAO
+DO! NOT! PUT! IT! INTO! OUR! REPORT!
+```{r}
+guessdata = data.frame(0)
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(0))
+guessdata = rbind(guessdata,(1))
+guessdata = rbind(guessdata,(1))
+ourdata = cbind(ourdata,guessdata)
+names(ourdata)[names(ourdata) == 'X0'] <- 'Image'
+ourdata
+```
+
+
+#  Logistic Regression
+
+##  The principle of logistic regression
+
+As our response variables Lab.Status is categorical, we use generalized linear regression (GLM) to fit the data, and also it only has dichotomous (0/1) outcomes, so we choose logistic regression to be our model.
+
+Method and principle: 
+
+In logistic regression, we assume $\pi = \mu_Y$ is the **mean** of Y(also equals variance), the **probability distribution** to be $Y_i$ ~ $Binomial(1,\mu_Y)$, ${X}{\beta} = ln({\frac{\pi}{1-\pi}})$ is the **link function**(named **logit**) and $\mu = \frac{e^{X\beta}}{1 + e^{X\beta}}$ is the **mean function**.  And Y fit the model of the form 
+    $$ln({\frac{\pi}{1-\pi}}) = \beta_0 + \sum_{j = 1}^{p} {\beta_j}{X_j}$$
+
+
+
+After we do all these assumptions, we go through an **iterative maximum likelihood estimation procedure** to get the minimum deviance and derive all parameters. The **minimum deviance** is denoted as 
+$${d}_i = {s_i}{\sqrt{-2[{y_i}{ln\mu_i}+(1-y_i)ln(1-\mu_i)]}}$$
+
+##  The Full model
+
+
+```{r}
+fit_full = glm(Lab.Status~., family = binomial(link = "logit"), data = ourdata, 
+               control=list(maxit=1000))
+as_flextable(fit_full)
+```
+
+From the result of the table, if we set the criterion that $\alpha$ = 0.3, we can get that **suitability**, **Location** and **Image** are significant(0.294, 0.004, 0.298 respectively).
+
+*(the reason of why time factor is not significant ... or ...)*
+
+Then, under this criterion, we delete the the time factor and form the reduced model.
+
+##  The Reduced model
+```{r}
+fit_red = glm(Lab.Status~suitability+Location+Image, family = binomial(link = "logit"), 
+               data = ourdata, control=list(maxit=1000))
+as_flextable(fit_red)
+```
+Our reduced model is: $glm(formula = Lab.Status ~ suitability + Location + Image)$
+
+From the table, we can see that all three variables are significant under the criterion.
+
+Then we test the multicollinearity among variables.
+
+
+##  Test VIF
+Variance inflation factor (VIF) denote as
+$$ (VIF)_i = \frac{1}{1-R_i^2}$$
+and $R_i^2$ is the multiple coefficient of determination for regression model which delete the term i.
+
+In statistical area, if VIF is less than 2, we regard it as not multicollinearity.
+
+```{r}
+vif_red = as.data.frame(vif(fit_red))
+vif_red
+```
+ From the output of VIF, we can see that each VIF do not have significant difference compared to 1, meaning that no variable which can be linearly predicted from the others with a substantial degree of accuracy.
+ 
+
+## ANOVA to test differences(full and reduced dmodel)
+```{r}
+anova = anova(fit_red, fit_full,test = "Chisq")
+flextable(data = anova)
+```
+
+We use the Chi-Square Comparison, do the ANOVA test t compare two models. 
+
+As our null hypothesis $H_0$ is that these two models don't have significant difference. P-value is 0.82 greater than 0.05, which means we can't reject the fact that these two have same impact on predicting the result, we can set the reduced model to be our final model.
+
+
+##  coefficient analysis
+```{r}
+coef = as.data.frame(exp(coef(fit_red)))
+names(coef) = "Coefficient"
+coef
+```
+
+From the result, we can get that the initial probability of Positive ID is 0.005, then by adding one point of suitability, the result times 1.006(which means increasing suitability can increase the probability). Location change from 0 to 1, the result can be multiplied by 64.220 times and the change from 0 to 1 of Image can leads to 4.693 times change.
+
+In short, three coefficients are greater than one means the change is positive while the coefficients' number increase.
+
+
+## Confidence Interval of coefficients
+```{r}
+as.data.frame(exp(confint(fit_red)))
+```
+
+From the result, for example, the 95% confidence interval for location is (6.333, 2068.464). 
+
+With 95 percent confidence level, we estimate the multiples of the percentage growth from 6.333 times to 2068.464 times if the condition changed from 0 to 1.
+
+
+## test overdispersion
+
+Overdispersion often happens in the omission of an important predictor variable, clustering inherent in repeated measures data or known as state dependence. In logistic regression, overdispersion is suggested if $\phi$ is much larger than 1.
+$$\phi = \frac{Residual\ deviance}{Residual\ df}$$
+```{r}
+fit.od = glm(Lab.Status~., family = quasibinomial(link = "logit"), data = ourdata, 
+             control=list(maxit=100))
+pchisq(summary(fit.od)$dispersion * fit_red$df.residual,fit_red$df.residual, lower = F)
+```
+$H_0$ is $\phi = 1$, as the result is 0.4231 > 0.05, so we can not reject the null hypothesis, this model don't have overdispersion.
+
+
+## confussion matrix
+```{r}
+true = as.factor(ourdata$Lab.Status)
+pred = as.numeric(predict(fit_red,type = "response", ourdata)>0.5)
+pred = as.factor(pred)
+confusion_matrix = confusionMatrix(data = pred, reference = true)
+confusion_matrix
+```
+
+The result shows the logistic model's accuracy is 91.18%.
+
+*(Actually we need test data to count the accuracy, but as you know... I use training itself, so this part need mention don't go in detail)*
+
+
+
+#  Reference
+
+Robert I. Kabacoff. R in action: Data analysis and graphics with R. Shelter Island: Manning,
+2011. 
+
